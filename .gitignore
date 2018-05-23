@@ -1,0 +1,6 @@
+*.log
+lib
+include
+.Python
+__pycache__
+bin
