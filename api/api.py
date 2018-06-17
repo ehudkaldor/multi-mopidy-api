@@ -2,10 +2,18 @@ import logging
 import configparser
 import asyncio
 from .protocol import Protocol
+from .group import Group
+from .client import Client
+from .stream import Stream
 
 
 class API:
     _log = logging.getLogger("API")
+
+    _clients = {}
+    _streams = {}
+    _groups = {}
+    _version = None
 
     def __init__(self, host, port, methods, callbacks, loop):
         self._log.debug(f"initializing API to: {host}:{port}")
@@ -13,7 +21,6 @@ class API:
         self._host = host
         self._port = port
         self._methods = methods
-        # self._loop = asyncio.get_event_loop()
         self._protocol = Protocol(host, port, callbacks, loop)
         self._log.debug(f"API init completed. methods: {self._methods}")
 
@@ -22,6 +29,7 @@ class API:
         await self._do_connect()
         self._log.info('connected to snapserver on %s:%s', self._host, self._port)
         status = await self.getStatus()
+        self.parseStatus(status)
         # self.synchronize(status)
         # self._on_server_connect()
 
@@ -48,9 +56,31 @@ class API:
         # async self._protocol.connect()
 
     async def getStatus(self):
-        """System status."""
+        """
+        Set 'get status' to the server, async
+        """
         result = await self._transact(self._methods["SERVER_GETSTATUS"])
         return result
+
+    def parseStatus(self, status):
+        """
+        Parses status line and updated local parameters
+        """
+        self._version = status.get('server').get('version')
+        self._groups = {}
+        self._clients = {}
+        self._streams = {}
+        for stream in status.get('server').get('streams'):
+            self._streams[stream.get('id')] = Stream(stream)
+            self._log.debug(f"stream found: {self._streams[stream.get('id')]}")
+        for group in status.get('server').get('groups'):
+            self._groups[group.get('id')] = Group(self, group)
+            self._log.debug(f"group found: {self._groups[group.get('id')]}")
+            for client in group.get('clients'):
+                self._clients[client.get('id')] = Client(self, client)
+                self._log.debug(f"client found: {self._clients[client.get('id')]}")
+        self._log.debug(f"parsed snapcast status:\nversion: {self._version}\n\ngroups: {self._groups}\n\nclients: {self._clients}\n\nstreams: {self._streams}")
+
 
 
     def getJsonRpcVersion(self):
@@ -62,29 +92,29 @@ class API:
         _log.info(f'getJsonRpcVersion result: {result}')
         return result
 
-    def serverOnUpdate():
+    def server_on_update():
         pass
 
-    def streamOnUpdate():
+    def stream_on_update():
         pass
 
-    def clientOnConnect():
+    def client_on_connect():
         pass
 
-    def clientOnDisconnect():
+    def client_on_disconnect():
         pass
 
-    def clientOnVolumeChanged():
+    def client_on_volume_changed():
         pass
 
-    def clientOnLatencyChanged():
+    def client_on_latency_changed():
         pass
 
-    def clientOnNameChanged():
+    def client_on_name_changed():
         pass
 
-    def groupOnMute():
+    def group_on_mute():
         pass
 
-    def groupOnStreamChanged():
+    def group_on_stream_changed():
         pass
