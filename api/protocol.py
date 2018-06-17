@@ -12,14 +12,6 @@ def _getNextId():
     return _nextClientId
 
 def generateRequest(method, params = None):
-    # req = {
-    #     'id': _getNextId(),
-    #     'jsonrpc': _jsonrpc,
-    #     'method': method,
-    # }
-    # if params:
-    #     req['params'] = params
-    # request = json.dumps({
     id = _getNextId()
     request = json.dumps({
         'id': id,
@@ -45,16 +37,6 @@ class Protocol(asyncio.Protocol):
         self._loop = loop
         self._log.debug(f"Protocol init completed")
 
-    # async def connect(self):
-    #     try:
-    #         self._loop.run_forever()
-    #     except Exception as e:
-    #         self._log.debug(f'exception detected: {e}')
-    #     except KeyboardInterrupt:
-    #         self._log.debug('keyboard interrupt detected')
-    #     finally:
-    #         pass
-
     def connection_made(self, transport):
         """
         Called when a connection is made
@@ -62,7 +44,6 @@ class Protocol(asyncio.Protocol):
         self._log.debug(f'connection_made. transport: {transport}')
         self._transport = transport
         self._log.debug('connection from {}'.format(self._transport.get_extra_info('peername')))
-        # transport.write(ndjson.dumps({"id":8,"jsonrpc":"2.0","method":"Server.GetRPCVersion"}).encode())
 
     def connection_lost(self, exception):
         """
@@ -102,23 +83,32 @@ class Protocol(asyncio.Protocol):
         elif 'method' in data:
             # self._log.debug(f"got notification by method {data['method']}")
             self.handle_notification(data)
+        else:
+            self._log.error(f"received data with no id or method: {data}")
 
     def handle_response(self, data):
-        """Handle JSONRPC response."""
+        """
+        Handle resposnes to requests
+        """
         id = data.get('id')
         self._log.debug(f"got response to query id {id}")
         self._buffer[id]['data'] = data.get('result')
         self._buffer[id]['flag'].set()
 
     def handle_notification(self, data):
-        """Handle JSONRPC notification."""
+        """
+        Handles notification coming from snapcast
+        """
         self._log.debug(f"handle_notification {data}")
-        # if data.get('method') in self._callbacks:
-        #     self._callbacks.get(data.get('method'))(data.get('params'))
+        if data.get('method') in self._callbacks:
+
+            self._callbacks.get(data.get('method'))(data.get('params'))
 
 
     async def request(self, method, params):
-        """Send a JSONRPC request."""
+        """
+        Send a JSONRPC request
+        """
         id, req = generateRequest(method, params)
         self._log.debug(f'request: {req}, id: {id}')
         self._transport.write(req)
